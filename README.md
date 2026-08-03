@@ -1,95 +1,160 @@
-# Swaptora escrow program v1
+# Swaptora Escrow Program
 
-Anchor-программа адресного атомарного обмена SOL, обычных SPL Token и обычных
-непрограммируемых Metaplex NFT. Maker сразу помещает свою сторону сделки в
-отдельный PDA-vault; только зафиксированный taker может атомарно исполнить оффер.
+An Anchor program for addressed, atomic swaps on Solana. A maker deposits the
+offered assets into a program-derived vault; only the named taker can accept the
+offer before it expires. The program never holds user keys and has no relayer or
+backend custody component.
 
-Program ID: `CUziHakzRiAYkYE5kz5Sb3DzyWor4p51QRpQ99HvKib8`.
+> **Status: pre-deployment / unaudited.** This repository is suitable for local
+> development and review. Do not use it with real assets until an audited,
+> verified build has been deployed and the release information below is filled in.
 
-## Что реализовано
+## At a glance
 
-- `initialize_config` — одноразовое создание неизменяемого `Config` PDA;
-- `create_offer` — комиссия, создание Offer, ATA vault и полный депозит maker;
-- `accept_offer` — атомарный перевод обеих сторон, закрытие vault ATA и возврат rent maker;
-- `cancel_offer` — возврат maker до дедлайна;
-- `claim_expired_offer` — возврат после дедлайна, допускается любой caller, но получатель всегда maker;
-- TTL ровно 604800 секунд, до 8 позиций с каждой стороны;
-- только classic SPL Token Program; Token-2022 отклоняется;
-- принимается любой технически валидный classic SPL mint;
-- NFT требует `NonFungible`, supply 1, decimals 0, amount 1 и canonical Metadata PDA;
-- коллекция NFT может отсутствовать, быть непроверенной или иметь любой адрес;
-- mint с freeze authority и frozen token account отклоняются;
-- отсутствуют pause, изменение комиссии, emergency withdraw и другие admin-инструкции.
+| Property | Value |
+| --- | --- |
+| Framework | Anchor 1.1.2 |
+| Program language | Rust |
+| Program ID compiled into this source | `CUziHakzRiAYkYE5kz5Sb3DzyWor4p51QRpQ99HvKib8` |
+| Deployment status | Not verified on devnet or mainnet-beta |
+| Escrow lifetime | 604,800 seconds (7 days) |
+| Assets per side | Up to 8 |
+| Program test harness | Mollusk 0.14 against the compiled sBPF ELF |
 
-Платформенная комиссия списывается только при успешном `create_offer` и не
-возвращается. Все исходные и конечные token accounts — canonical ATA classic
-Token Program. Лишние SOL или токены, присланные в vault третьей стороной,
-возвращаются maker при завершении, поэтому donation не даёт извлечь активы и не
-оставляет их навсегда заблокированными.
+The program ID above is a build-time address, **not** evidence of an on-chain
+deployment. Do not send SOL or tokens to it. A released deployment must publish
+the cluster, deployed program address, transaction, source revision, IDL, binary
+hash, upgrade-authority status, and verified-build record.
 
-Программа проверяет техническую идентичность активов, но не их рыночную
-стоимость и не подлинность бренда. Клиент должен показывать точные mint-адреса,
-статус коллекции и предупреждать пользователя о похожих или поддельных токенах.
+## Supported assets
 
-## Сборка и тестирование
+| Asset | Supported in v1 | Validation performed |
+| --- | --- | --- |
+| Native SOL | Yes | Exact lamport amount is escrowed in the vault PDA. |
+| Classic SPL Token | Yes | The mint and token accounts must belong to the classic SPL Token Program; source and destination accounts are canonical ATAs. Frozen accounts and mints with a freeze authority are rejected. |
+| Metaplex `NonFungible` NFT | Yes | Classic SPL mint; supply `1`; decimals `0`; amount `1`; canonical Metaplex Token Metadata PDA; `token_standard = NonFungible`. A collection is optional and is not used as an admission rule. |
+| Token-2022 | No | Rejected in v1, including all Token-2022 extensions. |
+| Programmable NFT, compressed NFT, Metaplex Core | No | Not implemented in v1. |
 
-Требуемый стек: Rust 1.89+, Solana CLI 3.1.10/platform-tools v1.52, Anchor 1.1.2.
-`Cargo.lock` обязателен: в нём закреплены версии, совместимые с SBPF Cargo.
+The contract verifies technical asset identity, not market value, creator
+identity, intellectual-property rights, or collection authenticity. Integrators
+must display the exact mint address, token-program variant, and collection state
+to users before they sign a transaction.
+
+## Protocol flow
+
+1. The one-time release initializer calls `initialize_config` with the immutable
+   fee receiver and platform fee.
+2. The maker calls `create_offer`, pays the platform fee, and deposits its side
+   of the trade into the per-offer vault.
+3. Before the deadline, the named taker calls `accept_offer`. Both sides transfer
+   atomically; token vault ATAs are closed and their rent returns to the maker.
+4. Before expiry, the maker may call `cancel_offer` to recover the escrow.
+5. After expiry, anyone may call `claim_expired_offer`; assets still return only
+   to the maker.
+
+Failed instructions roll back atomically. Any unsolicited SOL or classic SPL
+tokens sent to a vault are returned to the maker when the offer is completed,
+cancelled, or reclaimed.
+
+## Instructions
+
+| Instruction | Caller | Purpose |
+| --- | --- | --- |
+| `initialize_config` | Release initializer, once | Creates the immutable `Config` PDA with the fee receiver and fee. |
+| `create_offer` | Maker | Creates an active addressed offer and escrows the maker assets. |
+| `accept_offer` | Named taker | Atomically exchanges the two sides before expiry. |
+| `cancel_offer` | Maker | Refunds an active offer before expiry. |
+| `claim_expired_offer` | Any signer | Refunds an expired active offer to its maker. |
+
+Detailed ordering and mutability of dynamic accounts is in
+[the account schema](docs/ACCOUNT_SCHEMA.md). Clients must pass exactly that
+schema; missing, surplus, duplicate, or substituted remaining accounts are
+rejected.
+
+## Accounts and PDAs
+
+```text
+Config:            ["config"]
+Offer:             ["offer", maker, nonce.to_le_bytes()]
+Vault:             ["vault", offer]
+Vault token ATA:   ATA(owner = Vault PDA, mint, classic SPL Token Program)
+```
+
+`Offer` stores the participants, terms, fee snapshot, timestamps, status, and
+PDA bumps. The initial status is `Active`; there is no on-chain draft state.
+
+## Local development
+
+### Prerequisites
+
+- Rust 1.89 or newer
+- Solana CLI 3.1.10 with platform-tools v1.52
+- Anchor CLI 1.1.2
+
+`Cargo.lock` is committed intentionally to keep host and SBPF dependencies
+reproducible.
+
+### Build, test, and generate the interface
 
 ```bash
-NO_DNA=1 anchor --version
+NO_DNA=1 cargo fmt --all -- --check
 NO_DNA=1 cargo build-sbf --tools-version v1.52
 NO_DNA=1 anchor run mollusk
+NO_DNA=1 cargo clippy --all-targets -- -D warnings
 NO_DNA=1 anchor idl build \
   -o idl/swaptora_contract_sol.json \
   -t types/swaptora_contract_sol.ts
 ```
 
-Mollusk 0.14 выполняет собранный SBPF ELF, а не host-функцию. 13 тестов покрывают:
+The Mollusk suite runs the compiled sBPF artifact, not a host-only substitute.
+It covers SOL, classic SPL, NFT and mixed-asset swaps; atomic rollback; wrong
+taker and replay attempts; cancel and permissionless expiry reclaim; account
+substitution; token-account freezing; Token-2022 rejection; an NFT with an
+unverified collection; and an NFT with no collection.
 
-- SOL↔SOL и одноразовое исполнение;
-- SPL↔SPL через Token/ATA CPI и возврат rent;
-- NFT↔NFT с произвольными коллекциями и NFT без коллекции;
-- смешанный обмен `2 NFT + SOL + SPL ↔ NFT + SPL`;
-- атомарный rollback, если отсутствует один из нескольких активов taker;
-- неверного taker, позднее принятие, cancel и permissionless reclaim;
-- повторное accept/cancel/reclaim;
-- пустые, дублированные и превышающие лимит массивы;
-- ровно 8 разрешённых позиций на стороне и превышение лимита;
-- подмену vault account;
-- NFT без коллекции, Token-2022 и frozen classic token account;
-- отсутствие административной поверхности изменения конфигурации.
+Generated client artifacts are committed:
 
-Сгенерированные интерфейсы: [IDL](idl/swaptora_contract_sol.json) и
-[TypeScript IDL type](types/swaptora_contract_sol.ts).
+- [Anchor IDL](idl/swaptora_contract_sol.json)
+- [TypeScript IDL type](types/swaptora_contract_sol.ts)
 
-## PDA
+## Security model and limitations
 
-```text
-Config: ["config"]
-Offer:  ["offer", maker, nonce.to_le_bytes()]
-Vault:  ["vault", offer]
-Vault token account: ATA(owner = Vault PDA, mint, classic Token Program)
-```
+- The platform fee is charged only after a successful `create_offer` and is not
+  refundable.
+- The configured fee receiver and fee are immutable after initialization.
+- v1 intentionally has no pause, fee-update, asset-restriction,
+  emergency-withdraw, or administrative asset-transfer instruction.
+- The current `RELEASE_INITIALIZER` is a local-test placeholder. It must be
+  replaced with a dedicated public key for a release; never commit its private
+  key.
+- This code has not been independently audited. An audit, devnet integration
+  testing, reproducible build verification, and a review of upgrade authority
+  are required before production use.
 
-`Offer` сохраняет обе стороны, fee snapshot, config version, timestamps, status
-и canonical bumps. On-chain черновика нет: первый статус — `Active`.
+See the complete [release checklist](docs/RELEASE.md). For Solana deployment and
+verified-build guidance, consult the official [Solana verified builds
+documentation](https://solana.com/docs/programs/verified-builds).
 
-Точная последовательность `remaining_accounts` описана в
-[docs/ACCOUNT_SCHEMA.md](docs/ACCOUNT_SCHEMA.md). Клиент обязан передавать ровно
-этот набор — лишние, недостающие и подменённые аккаунты отклоняются.
+## Repository conventions
 
-## Обязательный release gate
+- Rust source: [`src/`](src)
+- SBPF/Mollusk tests: [`tests/mollusk.rs`](tests/mollusk.rs)
+- Account ABI: [`docs/ACCOUNT_SCHEMA.md`](docs/ACCOUNT_SCHEMA.md)
+- Generated public interfaces: [`idl/`](idl) and [`types/`](types)
 
-Текущий `RELEASE_INITIALIZER` — явный placeholder
-`3qbR1eZRqXUWroWKKYhbDmR3FfqTHfqSU8zZSxtANzYh` (`[42; 32]`) для локального
-Mollusk harness. У него намеренно нет сохранённого приватного ключа. До devnet
-или mainnet необходимо заменить в `src/lib.rs` только публичный ключ на адрес
-одноразового release initializer и заново собрать/опубликовать verified build.
+Changes to account layouts, instruction arguments, error ordering, PDA seeds, or
+asset-validation rules are compatibility-sensitive. Treat them as a protocol
+version change: regenerate the IDL/types, update tests and documentation, and
+deploy a new program ID unless a reviewed migration path exists.
 
-До mainnet также обязательны: реальный fee receiver, devnet integration suite,
-независимый аудит, публикация init transaction и окончательное снятие upgrade
-authority. Полный чек-лист: [docs/RELEASE.md](docs/RELEASE.md).
+## Contributing and security reports
 
-Программа не подписывает и не отправляет транзакции, не хранит приватные ключи и
-не включает relayer. Сетевую комиссию `accept_offer` в v1 оплачивает taker.
+Before opening this repository for external contributions, add `CONTRIBUTING.md`,
+`SECURITY.md`, a `LICENSE` file, CI, and a monitored vulnerability-reporting
+channel. Until then, do not disclose potential vulnerabilities in a public issue
+and do not submit production deployment requests through this repository.
+
+The crate currently declares the MIT license in [`Cargo.toml`](Cargo.toml). The
+full MIT license text must be committed as `LICENSE` before the repository is
+made public.
