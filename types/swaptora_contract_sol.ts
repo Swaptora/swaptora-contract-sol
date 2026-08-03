@@ -464,18 +464,6 @@ export type SwaptoraContractSol = {
         {
           "name": "platformFeeLamports",
           "type": "u64"
-        },
-        {
-          "name": "allowedSplMints",
-          "type": {
-            "vec": "pubkey"
-          }
-        },
-        {
-          "name": "allowedNftCollections",
-          "type": {
-            "vec": "pubkey"
-          }
         }
       ]
     }
@@ -598,91 +586,76 @@ export type SwaptoraContractSol = {
     },
     {
       "code": 6004,
-      "name": "unsupportedMint",
-      "msg": "SPL mint is not in the immutable allowlist"
-    },
-    {
-      "code": 6005,
-      "name": "unsupportedCollection",
-      "msg": "NFT collection is not in the immutable allowlist"
-    },
-    {
-      "code": 6006,
       "name": "unsupportedTokenStandard",
       "msg": "NFT token standard is unsupported"
     },
     {
-      "code": 6007,
+      "code": 6005,
       "name": "invalidNftAmount",
       "msg": "NFT amount must be exactly one"
     },
     {
-      "code": 6008,
+      "code": 6006,
       "name": "invalidTokenAccount",
       "msg": "Token account, mint, metadata, owner, or token program is invalid"
     },
     {
-      "code": 6009,
+      "code": 6007,
       "name": "insufficientBalance",
       "msg": "Source account has insufficient balance"
     },
     {
-      "code": 6010,
+      "code": 6008,
       "name": "unauthorizedMaker",
       "msg": "Only the offer maker may perform this action"
     },
     {
-      "code": 6011,
+      "code": 6009,
       "name": "unauthorizedTaker",
       "msg": "Only the addressed offer taker may accept"
     },
     {
-      "code": 6012,
+      "code": 6010,
       "name": "offerNotActive",
       "msg": "Offer is not active"
     },
     {
-      "code": 6013,
+      "code": 6011,
       "name": "offerExpired",
       "msg": "Offer has expired"
     },
     {
-      "code": 6014,
+      "code": 6012,
       "name": "offerNotExpired",
       "msg": "Offer has not expired"
     },
     {
-      "code": 6015,
+      "code": 6013,
       "name": "vaultBalanceMismatch",
       "msg": "Vault holds less than the committed amount or is malformed"
     },
     {
-      "code": 6016,
+      "code": 6014,
       "name": "invalidRecipientAccount",
       "msg": "Recipient account does not match the committed owner and mint"
     },
     {
-      "code": 6017,
+      "code": 6015,
       "name": "feeConfigurationInvalid",
       "msg": "Immutable fee configuration or receiver account is invalid"
     },
     {
-      "code": 6018,
+      "code": 6016,
       "name": "unauthorizedInitializer",
       "msg": "Release initializer does not match the key compiled into this release"
     },
     {
-      "code": 6019,
-      "name": "invalidAllowlist",
-      "msg": "Allowlist exceeds the immutable v1 bound or contains duplicates"
-    },
-    {
-      "code": 6020,
+      "code": 6017,
       "name": "arithmeticOverflow",
       "msg": "Arithmetic overflow"
     },
     {
-      "code": 6021,
+      "code": 6018,
       "name": "invalidRemainingAccounts",
       "msg": "Unexpected, missing, duplicate, or writable remaining account"
     }
@@ -755,18 +728,6 @@ export type SwaptoraContractSol = {
           {
             "name": "version",
             "type": "u16"
-          },
-          {
-            "name": "allowedSplMints",
-            "type": {
-              "vec": "pubkey"
-            }
-          },
-          {
-            "name": "allowedNftCollections",
-            "type": {
-              "vec": "pubkey"
-            }
           },
           {
             "name": "bump",

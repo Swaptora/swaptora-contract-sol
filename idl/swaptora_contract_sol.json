@@ -458,18 +458,6 @@
         {
           "name": "platform_fee_lamports",
           "type": "u64"
-        },
-        {
-          "name": "allowed_spl_mints",
-          "type": {
-            "vec": "pubkey"
-          }
-        },
-        {
-          "name": "allowed_nft_collections",
-          "type": {
-            "vec": "pubkey"
-          }
         }
       ]
     }
@@ -592,91 +580,76 @@
     },
     {
       "code": 6004,
-      "name": "UnsupportedMint",
-      "msg": "SPL mint is not in the immutable allowlist"
-    },
-    {
-      "code": 6005,
-      "name": "UnsupportedCollection",
-      "msg": "NFT collection is not in the immutable allowlist"
-    },
-    {
-      "code": 6006,
       "name": "UnsupportedTokenStandard",
       "msg": "NFT token standard is unsupported"
     },
     {
-      "code": 6007,
+      "code": 6005,
       "name": "InvalidNftAmount",
       "msg": "NFT amount must be exactly one"
     },
     {
-      "code": 6008,
+      "code": 6006,
       "name": "InvalidTokenAccount",
       "msg": "Token account, mint, metadata, owner, or token program is invalid"
     },
     {
-      "code": 6009,
+      "code": 6007,
       "name": "InsufficientBalance",
       "msg": "Source account has insufficient balance"
     },
     {
-      "code": 6010,
+      "code": 6008,
       "name": "UnauthorizedMaker",
       "msg": "Only the offer maker may perform this action"
     },
     {
-      "code": 6011,
+      "code": 6009,
       "name": "UnauthorizedTaker",
       "msg": "Only the addressed offer taker may accept"
     },
     {
-      "code": 6012,
+      "code": 6010,
       "name": "OfferNotActive",
       "msg": "Offer is not active"
     },
     {
-      "code": 6013,
+      "code": 6011,
       "name": "OfferExpired",
       "msg": "Offer has expired"
     },
     {
-      "code": 6014,
+      "code": 6012,
       "name": "OfferNotExpired",
       "msg": "Offer has not expired"
     },
     {
-      "code": 6015,
+      "code": 6013,
       "name": "VaultBalanceMismatch",
       "msg": "Vault holds less than the committed amount or is malformed"
     },
     {
-      "code": 6016,
+      "code": 6014,
       "name": "InvalidRecipientAccount",
       "msg": "Recipient account does not match the committed owner and mint"
     },
     {
-      "code": 6017,
+      "code": 6015,
       "name": "FeeConfigurationInvalid",
       "msg": "Immutable fee configuration or receiver account is invalid"
     },
     {
-      "code": 6018,
+      "code": 6016,
       "name": "UnauthorizedInitializer",
       "msg": "Release initializer does not match the key compiled into this release"
     },
     {
-      "code": 6019,
-      "name": "InvalidAllowlist",
-      "msg": "Allowlist exceeds the immutable v1 bound or contains duplicates"
-    },
-    {
-      "code": 6020,
+      "code": 6017,
       "name": "ArithmeticOverflow",
       "msg": "Arithmetic overflow"
     },
     {
-      "code": 6021,
+      "code": 6018,
       "name": "InvalidRemainingAccounts",
       "msg": "Unexpected, missing, duplicate, or writable remaining account"
     }
@@ -749,18 +722,6 @@
           {
             "name": "version",
             "type": "u16"
-          },
-          {
-            "name": "allowed_spl_mints",
-            "type": {
-              "vec": "pubkey"
-            }
-          },
-          {
-            "name": "allowed_nft_collections",
-            "type": {
-              "vec": "pubkey"
-            }
           },
           {
             "name": "bump",

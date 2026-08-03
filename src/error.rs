@@ -10,10 +10,6 @@ pub enum EscrowError {
     DuplicateMint,
     #[msg("Asset count exceeds the immutable v1 limit")]
     TooManyAssets,
-    #[msg("SPL mint is not in the immutable allowlist")]
-    UnsupportedMint,
-    #[msg("NFT collection is not in the immutable allowlist")]
-    UnsupportedCollection,
     #[msg("NFT token standard is unsupported")]
     UnsupportedTokenStandard,
     #[msg("NFT amount must be exactly one")]
@@ -40,8 +36,6 @@ pub enum EscrowError {
     FeeConfigurationInvalid,
     #[msg("Release initializer does not match the key compiled into this release")]
     UnauthorizedInitializer,
-    #[msg("Allowlist exceeds the immutable v1 bound or contains duplicates")]
-    InvalidAllowlist,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
     #[msg("Unexpected, missing, duplicate, or writable remaining account")]

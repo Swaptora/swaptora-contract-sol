@@ -17,28 +17,8 @@ use anchor_spl::{
 
 use crate::{
     error::EscrowError,
-    state::{AssetItem, AssetKind, Config, MAX_ASSETS_PER_SIDE},
+    state::{AssetItem, AssetKind, MAX_ASSETS_PER_SIDE},
 };
-
-pub fn validate_allowlists(spl_mints: &[Pubkey], nft_collections: &[Pubkey]) -> Result<()> {
-    require!(
-        spl_mints.len() <= crate::state::MAX_ALLOWED_SPL_MINTS
-            && nft_collections.len() <= crate::state::MAX_ALLOWED_NFT_COLLECTIONS,
-        EscrowError::InvalidAllowlist
-    );
-    require!(
-        unique_non_default(spl_mints) && unique_non_default(nft_collections),
-        EscrowError::InvalidAllowlist
-    );
-    Ok(())
-}
-
-fn unique_non_default(values: &[Pubkey]) -> bool {
-    let mut seen = BTreeSet::new();
-    values
-        .iter()
-        .all(|value| *value != Pubkey::default() && seen.insert(*value))
-}
 
 pub fn validate_asset_lists(maker: &[AssetItem], taker: &[AssetItem]) -> Result<()> {
     require!(
@@ -206,19 +186,13 @@ pub fn validate_asset_mint_and_metadata(
     asset: &AssetItem,
     mint_info: &AccountInfo<'_>,
     metadata_info: Option<&AccountInfo<'_>>,
-    config: &Config,
 ) -> Result<u8> {
     require_keys_eq!(*mint_info.key, asset.mint, EscrowError::InvalidTokenAccount);
     let mint = unpack_mint(mint_info)?;
 
     match asset.kind {
         AssetKind::Sol => return err!(EscrowError::InvalidAssetList),
-        AssetKind::SplToken => {
-            require!(
-                config.allowed_spl_mints.contains(&asset.mint),
-                EscrowError::UnsupportedMint
-            );
-        }
+        AssetKind::SplToken => {}
         AssetKind::Nft => {
             require!(asset.amount == 1, EscrowError::InvalidNftAmount);
             require!(
@@ -244,14 +218,6 @@ pub fn validate_asset_mint_and_metadata(
             require!(
                 metadata.token_standard == Some(TokenStandard::NonFungible),
                 EscrowError::UnsupportedTokenStandard
-            );
-            let collection = metadata
-                .collection
-                .ok_or_else(|| error!(EscrowError::UnsupportedCollection))?;
-            require!(collection.verified, EscrowError::UnsupportedCollection);
-            require!(
-                config.allowed_nft_collections.contains(&collection.key),
-                EscrowError::UnsupportedCollection
             );
         }
     }

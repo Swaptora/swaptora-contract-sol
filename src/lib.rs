@@ -28,8 +28,6 @@ pub mod swaptora_contract_sol {
         ctx: Context<InitializeConfig>,
         fee_receiver: Pubkey,
         platform_fee_lamports: u64,
-        allowed_spl_mints: Vec<Pubkey>,
-        allowed_nft_collections: Vec<Pubkey>,
     ) -> Result<()> {
         require_keys_eq!(
             ctx.accounts.release_initializer.key(),
@@ -40,15 +38,11 @@ pub mod swaptora_contract_sol {
             fee_receiver != Pubkey::default() && platform_fee_lamports > 0,
             EscrowError::FeeConfigurationInvalid
         );
-        validate_allowlists(&allowed_spl_mints, &allowed_nft_collections)?;
-
         let config = &mut ctx.accounts.config;
         config.fee_receiver = fee_receiver;
         config.platform_fee_lamports = platform_fee_lamports;
         config.max_assets_per_side = MAX_ASSETS_PER_SIDE as u8;
         config.version = CONFIG_VERSION;
-        config.allowed_spl_mints = allowed_spl_mints;
-        config.allowed_nft_collections = allowed_nft_collections;
         config.bump = ctx.bumps.config;
 
         let now = Clock::get()?.unix_timestamp;
@@ -126,12 +120,7 @@ pub mod swaptora_contract_sol {
                 matches!(asset.kind, AssetKind::Nft).then(|| &ctx.remaining_accounts[cursor + 3]);
             cursor += asset.remaining_account_count_for_validation();
 
-            let decimals = validate_asset_mint_and_metadata(
-                asset,
-                mint_info,
-                metadata_info,
-                &ctx.accounts.config,
-            )?;
+            let decimals = validate_asset_mint_and_metadata(asset, mint_info, metadata_info)?;
             validate_source_ata(source_info, &maker, &asset.mint, asset.amount)?;
             let expected_vault_ata =
                 anchor_spl::associated_token::get_associated_token_address_with_program_id(
@@ -167,7 +156,7 @@ pub mod swaptora_contract_sol {
         }
 
         // A taker does not need to own the requested assets when the offer is created,
-        // but their mint/metadata must already satisfy the immutable v1 allowlists.
+        // but their mint/metadata must already satisfy the v1 technical constraints.
         for asset in &taker_assets {
             if asset.is_sol() {
                 continue;
@@ -176,12 +165,7 @@ pub mod swaptora_contract_sol {
             let metadata_info =
                 matches!(asset.kind, AssetKind::Nft).then(|| &ctx.remaining_accounts[cursor + 1]);
             cursor += asset.remaining_account_count_for_terms();
-            validate_asset_mint_and_metadata(
-                asset,
-                mint_info,
-                metadata_info,
-                &ctx.accounts.config,
-            )?;
+            validate_asset_mint_and_metadata(asset, mint_info, metadata_info)?;
         }
 
         let sol_amount = checked_sol_total(&maker_assets)?;
@@ -285,12 +269,7 @@ pub mod swaptora_contract_sol {
                 matches!(asset.kind, AssetKind::Nft).then(|| &ctx.remaining_accounts[cursor + 3]);
             cursor += asset.remaining_account_count_for_validation();
 
-            let decimals = validate_asset_mint_and_metadata(
-                asset,
-                mint_info,
-                metadata_info,
-                &ctx.accounts.config,
-            )?;
+            let decimals = validate_asset_mint_and_metadata(asset, mint_info, metadata_info)?;
             validate_source_ata(source_info, &taker, &asset.mint, asset.amount)?;
             let expected_destination =
                 anchor_spl::associated_token::get_associated_token_address_with_program_id(
@@ -337,12 +316,7 @@ pub mod swaptora_contract_sol {
                 matches!(asset.kind, AssetKind::Nft).then(|| &ctx.remaining_accounts[cursor + 4]);
             cursor += asset.remaining_account_count_for_accept_from_vault();
 
-            let decimals = validate_asset_mint_and_metadata(
-                asset,
-                mint_info,
-                metadata_info,
-                &ctx.accounts.config,
-            )?;
+            let decimals = validate_asset_mint_and_metadata(asset, mint_info, metadata_info)?;
             let vault_account = validate_vault_ata(
                 vault_ata_info,
                 &ctx.accounts.vault.key(),

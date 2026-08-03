@@ -15,16 +15,21 @@ Program ID: `CUziHakzRiAYkYE5kz5Sb3DzyWor4p51QRpQ99HvKib8`.
 - `claim_expired_offer` — возврат после дедлайна, допускается любой caller, но получатель всегда maker;
 - TTL ровно 604800 секунд, до 8 позиций с каждой стороны;
 - только classic SPL Token Program; Token-2022 отклоняется;
-- SPL mint и verified NFT collection проверяются по неизменяемым on-chain allowlist;
+- принимается любой технически валидный classic SPL mint;
 - NFT требует `NonFungible`, supply 1, decimals 0, amount 1 и canonical Metadata PDA;
+- коллекция NFT может отсутствовать, быть непроверенной или иметь любой адрес;
 - mint с freeze authority и frozen token account отклоняются;
-- отсутствуют pause, fee/allowlist update, emergency withdraw и другие admin-инструкции.
+- отсутствуют pause, изменение комиссии, emergency withdraw и другие admin-инструкции.
 
 Платформенная комиссия списывается только при успешном `create_offer` и не
 возвращается. Все исходные и конечные token accounts — canonical ATA classic
 Token Program. Лишние SOL или токены, присланные в vault третьей стороной,
 возвращаются maker при завершении, поэтому donation не даёт извлечь активы и не
 оставляет их навсегда заблокированными.
+
+Программа проверяет техническую идентичность активов, но не их рыночную
+стоимость и не подлинность бренда. Клиент должен показывать точные mint-адреса,
+статус коллекции и предупреждать пользователя о похожих или поддельных токенах.
 
 ## Сборка и тестирование
 
@@ -44,7 +49,7 @@ Mollusk 0.14 выполняет собранный SBPF ELF, а не host-фун
 
 - SOL↔SOL и одноразовое исполнение;
 - SPL↔SPL через Token/ATA CPI и возврат rent;
-- NFT↔NFT с verified allowlisted collections;
+- NFT↔NFT с произвольными коллекциями и NFT без коллекции;
 - смешанный обмен `2 NFT + SOL + SPL ↔ NFT + SPL`;
 - атомарный rollback, если отсутствует один из нескольких активов taker;
 - неверного taker, позднее принятие, cancel и permissionless reclaim;
@@ -52,7 +57,7 @@ Mollusk 0.14 выполняет собранный SBPF ELF, а не host-фун
 - пустые, дублированные и превышающие лимит массивы;
 - ровно 8 разрешённых позиций на стороне и превышение лимита;
 - подмену vault account;
-- NFT вне allowlist, Token-2022 и frozen classic token account;
+- NFT без коллекции, Token-2022 и frozen classic token account;
 - отсутствие административной поверхности изменения конфигурации.
 
 Сгенерированные интерфейсы: [IDL](idl/swaptora_contract_sol.json) и
@@ -82,9 +87,9 @@ Mollusk harness. У него намеренно нет сохранённого 
 или mainnet необходимо заменить в `src/lib.rs` только публичный ключ на адрес
 одноразового release initializer и заново собрать/опубликовать verified build.
 
-До mainnet также обязательны: реальные fee receiver/allowlist, devnet
-integration suite, независимый аудит, публикация init transaction и окончательное
-снятие upgrade authority. Полный чек-лист: [docs/RELEASE.md](docs/RELEASE.md).
+До mainnet также обязательны: реальный fee receiver, devnet integration suite,
+независимый аудит, публикация init transaction и окончательное снятие upgrade
+authority. Полный чек-лист: [docs/RELEASE.md](docs/RELEASE.md).
 
 Программа не подписывает и не отправляет транзакции, не хранит приватные ключи и
 не включает relayer. Сетевую комиссию `accept_offer` в v1 оплачивает taker.

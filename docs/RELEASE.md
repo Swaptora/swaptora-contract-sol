@@ -6,7 +6,6 @@
 
 - заменить `RELEASE_INITIALIZER` на публичный ключ одноразового signer;
 - подтвердить публичный `fee_receiver` (предпочтительно multisig);
-- утвердить полный SPL mint и NFT collection allowlist;
 - создать новый program keypair при смене версии и синхронизировать
   `declare_id!`/`Anchor.toml`;
 - выполнить `cargo fmt --check`, `cargo check`, SBPF build и Mollusk suite;
@@ -17,11 +16,13 @@
 
 - независимый security audit и устранение findings;
 - verified/reproducible build, опубликованные hash и program ID;
-- опубликовать fee, fee receiver, allowlist, initializer и init transaction;
+- опубликовать fee, fee receiver, initializer и init transaction;
 - симулировать `initialize_config`, проверить получившийся Config через RPC;
 - окончательно снять upgrade authority только после проверки артефакта и Config;
 - зафиксировать UI disclosure: platform fee невозвратна, network fees не
-  возвращаются, срок — семь суток;
+  возвращаются, срок — семь суток, контракт не подтверждает стоимость или
+  подлинность произвольного mint;
+- показывать точный mint, token program и данные/статус коллекции до подписи;
 - подготовить индексатор событий и read-only fallback UI без backend custody.
 
 ## Emergency response

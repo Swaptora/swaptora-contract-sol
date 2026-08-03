@@ -53,13 +53,6 @@ fn system_account(lamports: u64) -> Account {
 }
 
 fn setup() -> (TestContext, Pubkey, Pubkey, Pubkey, Pubkey, Pubkey) {
-    setup_with_allowlists(vec![], vec![])
-}
-
-fn setup_with_allowlists(
-    allowed_spl_mints: Vec<Pubkey>,
-    allowed_nft_collections: Vec<Pubkey>,
-) -> (TestContext, Pubkey, Pubkey, Pubkey, Pubkey, Pubkey) {
     let initializer = pk(swaptora_contract_sol::RELEASE_INITIALIZER);
     let fee_receiver = Pubkey::new_unique();
     let maker = Pubkey::new_unique();
@@ -89,8 +82,6 @@ fn setup_with_allowlists(
         data: escrow_instruction::InitializeConfig {
             fee_receiver: anchor_pk(fee_receiver),
             platform_fee_lamports: PLATFORM_FEE,
-            allowed_spl_mints: allowed_spl_mints.into_iter().map(anchor_pk).collect(),
-            allowed_nft_collections: allowed_nft_collections.into_iter().map(anchor_pk).collect(),
         }
         .data(),
     };
@@ -129,6 +120,31 @@ fn token_balance(context: &TestContext, key: &Pubkey) -> u64 {
 }
 
 fn metadata_account(mint: Pubkey, collection: Pubkey) -> (Pubkey, Account) {
+    metadata_account_with_verification(mint, collection, true)
+}
+
+fn metadata_account_with_verification(
+    mint: Pubkey,
+    collection: Pubkey,
+    verified: bool,
+) -> (Pubkey, Account) {
+    metadata_account_with_collection(
+        mint,
+        Some(Collection {
+            verified,
+            key: anchor_pk(collection),
+        }),
+    )
+}
+
+fn standalone_metadata_account(mint: Pubkey) -> (Pubkey, Account) {
+    metadata_account_with_collection(mint, None)
+}
+
+fn metadata_account_with_collection(
+    mint: Pubkey,
+    collection: Option<Collection>,
+) -> (Pubkey, Account) {
     let metadata = Metadata {
         key: Key::MetadataV1,
         update_authority: anchor_lang::prelude::Pubkey::new_unique(),
@@ -142,10 +158,7 @@ fn metadata_account(mint: Pubkey, collection: Pubkey) -> (Pubkey, Account) {
         is_mutable: false,
         edition_nonce: None,
         token_standard: Some(TokenStandard::NonFungible),
-        collection: Some(Collection {
-            verified: true,
-            key: anchor_pk(collection),
-        }),
+        collection,
         uses: None,
         collection_details: None,
         programmable_config: None,
@@ -471,8 +484,7 @@ fn exactly_eight_assets_on_one_side_are_accepted() {
     let mints = (0..MAX_ASSETS_PER_SIDE)
         .map(|_| Pubkey::new_unique())
         .collect::<Vec<_>>();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(mints.clone(), vec![]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     {
         let mut store = context.account_store.borrow_mut();
         for mint in &mints {
@@ -530,8 +542,7 @@ fn instruction_surface_contains_no_admin_mutation_calls() {
 fn spl_for_spl_uses_classic_token_cpis_and_returns_vault_rent() {
     let maker_mint = Pubkey::new_unique();
     let taker_mint = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(vec![maker_mint, taker_mint], vec![]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     let nonce = 20;
     let (offer, vault) = offer_addresses(maker, nonce);
 
@@ -623,8 +634,7 @@ fn multi_asset_accept_rolls_back_when_one_taker_balance_is_missing() {
     let maker_mint = Pubkey::new_unique();
     let taker_mint_ok = Pubkey::new_unique();
     let taker_mint_missing = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(vec![maker_mint, taker_mint_ok, taker_mint_missing], vec![]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     let nonce = 21;
     let (offer, vault) = offer_addresses(maker, nonce);
 
@@ -708,17 +718,17 @@ fn multi_asset_accept_rolls_back_when_one_taker_balance_is_missing() {
 }
 
 #[test]
-fn nft_for_nft_requires_verified_allowlisted_collections() {
+fn nft_for_nft_supports_arbitrary_collections() {
     let maker_mint = Pubkey::new_unique();
     let taker_mint = Pubkey::new_unique();
     let maker_collection = Pubkey::new_unique();
     let taker_collection = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(vec![], vec![maker_collection, taker_collection]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     let nonce = 30;
     let (offer, vault) = offer_addresses(maker, nonce);
     let (maker_metadata, maker_metadata_account) = metadata_account(maker_mint, maker_collection);
-    let (taker_metadata, taker_metadata_account) = metadata_account(taker_mint, taker_collection);
+    let (taker_metadata, taker_metadata_account) =
+        metadata_account_with_verification(taker_mint, taker_collection, false);
     let (maker_source, maker_source_account) = token_account(maker_mint, maker, 1);
     let (taker_source, taker_source_account) = token_account(taker_mint, taker, 1);
     let (maker_destination, maker_destination_account) = token_account(taker_mint, maker, 0);
@@ -783,14 +793,11 @@ fn nft_for_nft_requires_verified_allowlisted_collections() {
 }
 
 #[test]
-fn nft_outside_allowlist_is_rejected_without_taking_custody() {
+fn nft_without_collection_is_supported_and_refundable() {
     let mint = Pubkey::new_unique();
-    let allowed_collection = Pubkey::new_unique();
-    let wrong_collection = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(vec![], vec![allowed_collection]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     let (offer, vault) = offer_addresses(maker, 31);
-    let (metadata, metadata_account) = metadata_account(mint, wrong_collection);
+    let (metadata, metadata_account) = standalone_metadata_account(mint);
     let (source, source_account) = token_account(mint, maker, 1);
     let (vault_ata, _) = token_account(mint, vault, 0);
     {
@@ -817,17 +824,29 @@ fn nft_outside_allowlist_is_rejected_without_taking_custody() {
             AccountMeta::new_readonly(metadata, false),
         ],
     );
-    assert!(context.process_instruction(&create).program_result.is_err());
+    context.process_and_validate_instruction(&create, &[Check::success()]);
+    assert_eq!(token_balance(&context, &source), 0);
+    assert_eq!(token_balance(&context, &vault_ata), 1);
+
+    let cancel = with_remaining(
+        cancel_ix(offer, vault, maker),
+        vec![
+            AccountMeta::new_readonly(mint, false),
+            AccountMeta::new(vault_ata, false),
+            AccountMeta::new(source, false),
+        ],
+    );
+    context.process_and_validate_instruction(&cancel, &[Check::success()]);
     assert_eq!(token_balance(&context, &source), 1);
-    assert!(context.account_store.borrow().get(&offer).is_none());
+    assert_eq!(account(&context, &vault_ata).lamports, 0);
+    assert_eq!(offer_state(&context, &offer).status, OfferStatus::Cancelled);
 }
 
 #[test]
 fn token_2022_and_frozen_classic_accounts_are_rejected() {
     let token_2022_mint = Pubkey::new_unique();
     let frozen_mint = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) =
-        setup_with_allowlists(vec![token_2022_mint, frozen_mint], vec![]);
+    let (context, config, fee_receiver, maker, taker, _) = setup();
 
     let (token_2022_source, token_2022_source_account) = token_account(token_2022_mint, maker, 10);
     let (_, token_2022_vault) = offer_addresses(maker, 40);
@@ -910,10 +929,7 @@ fn mixed_two_nft_sol_spl_for_nft_spl_executes_atomically() {
     let taker_spl = Pubkey::new_unique();
     let maker_collection = Pubkey::new_unique();
     let taker_collection = Pubkey::new_unique();
-    let (context, config, fee_receiver, maker, taker, _) = setup_with_allowlists(
-        vec![maker_spl, taker_spl],
-        vec![maker_collection, taker_collection],
-    );
+    let (context, config, fee_receiver, maker, taker, _) = setup();
     let nonce = 50;
     let (offer, vault) = offer_addresses(maker, nonce);
 

@@ -62,6 +62,7 @@ NFT: [mint, vault_ata(w), taker_destination_ata(w), maker_refund_ata(w), metadat
 - token/ATA program IDs фиксированы на classic SPL Token и Associated Token;
 - mint, ATA owner и ATA address выводятся программой независимо;
 - Metadata owner и PDA проверяются против Metaplex Token Metadata program;
+- NFT collection не является условием допуска и может отсутствовать;
 - source balance должен быть достаточен, vault balance — не меньше commitment;
 - account count должен совпасть точно;
 - все CPI выполняются в одной Solana transaction, ошибка откатывает их целиком.

@@ -3,8 +3,6 @@ use anchor_lang::prelude::*;
 pub const CONFIG_VERSION: u16 = 1;
 pub const OFFER_TTL_SECONDS: i64 = 7 * 24 * 60 * 60;
 pub const MAX_ASSETS_PER_SIDE: usize = 8;
-pub const MAX_ALLOWED_SPL_MINTS: usize = 32;
-pub const MAX_ALLOWED_NFT_COLLECTIONS: usize = 32;
 
 #[account]
 #[derive(InitSpace)]
@@ -13,10 +11,6 @@ pub struct Config {
     pub platform_fee_lamports: u64,
     pub max_assets_per_side: u8,
     pub version: u16,
-    #[max_len(MAX_ALLOWED_SPL_MINTS)]
-    pub allowed_spl_mints: Vec<Pubkey>,
-    #[max_len(MAX_ALLOWED_NFT_COLLECTIONS)]
-    pub allowed_nft_collections: Vec<Pubkey>,
     pub bump: u8,
 }
 
